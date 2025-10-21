@@ -141,7 +141,8 @@ class BatchProcessor:
                 # Get ocr cache key for batch processing
                 ocr_model = settings_page.get_tool_selection('ocr')
                 device = resolve_device(settings_page.is_gpu_enabled())
-                cache_key = self.cache_manager._get_ocr_cache_key(image, source_lang, ocr_model, device)
+                newline_mode = settings_page.get_ocr_newline_mode()
+                cache_key = self.cache_manager._get_ocr_cache_key(image, source_lang, ocr_model, device, newline_mode)
                 # Use the shared OCR processor from the handler
                 self.ocr_handler.ocr.initialize(self.main_page, source_lang)
                 try:

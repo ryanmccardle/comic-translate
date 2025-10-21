@@ -10,8 +10,9 @@ class ToolsPage(QtWidgets.QWidget):
         translators: list[str], 
         ocr_engines: list[str], 
         detectors: list[str],
-        inpainters: list[str], 
-        inpaint_strategy: list[str], 
+        inpainters: list[str],
+        inpaint_strategy: list[str],
+        strip_newline_options: list[str],
         parent=None
     ):
         super().__init__(parent)
@@ -20,6 +21,7 @@ class ToolsPage(QtWidgets.QWidget):
         self.detectors = detectors
         self.inpainters = inpainters
         self.inpaint_strategy = inpaint_strategy
+        self.strip_newline_options = strip_newline_options
 
         layout = QtWidgets.QVBoxLayout(self)
 
@@ -28,6 +30,11 @@ class ToolsPage(QtWidgets.QWidget):
 
         ocr_widget, self.ocr_combo = create_title_and_combo(self.tr("OCR"), self.ocr_engines, h4=True)
         set_combo_box_width(self.ocr_combo, self.ocr_engines)
+
+        strip_newlines_widget, self.strip_newlines_combo = create_title_and_combo(
+            self.tr("Strip newlines"), self.strip_newline_options, h4=False
+        )
+        set_combo_box_width(self.strip_newlines_combo, self.strip_newline_options)
 
         detector_widget, self.detector_combo = create_title_and_combo(self.tr("Text Detector"), self.detectors, h4=True)
         set_combo_box_width(self.detector_combo, self.detectors)
@@ -106,6 +113,7 @@ class ToolsPage(QtWidgets.QWidget):
         layout.addWidget(detector_widget)
         layout.addSpacing(10)
         layout.addWidget(ocr_widget)
+        layout.addWidget(strip_newlines_widget)
         layout.addSpacing(10)
         layout.addWidget(inpainting_label)
         layout.addWidget(inpainter_widget)

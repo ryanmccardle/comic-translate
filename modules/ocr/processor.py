@@ -2,7 +2,11 @@ import numpy as np
 from typing import Any
 
 from ..utils.textblock import TextBlock
-from ..utils.pipeline_utils import language_codes
+from ..utils.pipeline_utils import (
+    STRIP_NEWLINES_ALL,
+    apply_newline_handling,
+    language_codes,
+)
 from .factory import OCRFactory
 
 
@@ -19,6 +23,7 @@ class OCRProcessor:
         self.settings = None
         self.source_lang = None
         self.source_lang_english = None
+        self.newline_mode = STRIP_NEWLINES_ALL
         
     def initialize(self, main_page: Any, source_lang: str) -> None:
         """
@@ -33,6 +38,11 @@ class OCRProcessor:
         self.source_lang = source_lang
         self.source_lang_english = self._get_english_lang(source_lang)
         self.ocr_key = self._get_ocr_key(self.settings.get_tool_selection('ocr'))
+        get_mode = getattr(self.settings, 'get_ocr_newline_mode', None)
+        if callable(get_mode):
+            self.newline_mode = get_mode()
+        else:
+            self.newline_mode = STRIP_NEWLINES_ALL
         
     def _get_english_lang(self, translated_lang: str) -> str:
         return self.main_page.lang_mapping.get(translated_lang, translated_lang)
@@ -51,7 +61,15 @@ class OCRProcessor:
 
         self._set_source_language(blk_list)
         engine = OCRFactory.create_engine(self.settings, self.source_lang_english, self.ocr_key)
-        return engine.process_image(img, blk_list)
+        processed_blocks = engine.process_image(img, blk_list)
+
+        if processed_blocks is None:
+            processed_blocks = blk_list
+
+        for blk in processed_blocks:
+            blk.text = apply_newline_handling(getattr(blk, 'text', ''), self.newline_mode)
+
+        return processed_blocks
             
     def _set_source_language(self, blk_list: list[TextBlock]) -> None:
         source_lang_code = language_codes.get(self.source_lang_english, 'en')

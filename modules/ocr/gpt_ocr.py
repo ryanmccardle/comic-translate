@@ -111,8 +111,7 @@ class GPTOCR(OCREngine):
         if response.status_code == 200:
             response_json = response.json()
             text = response_json['choices'][0]['message']['content']
-            # Replace newlines with spaces
-            return text.replace('\n', ' ') if '\n' in text else text
+            return text
         else:
             print(f"API error: {response.status_code} {response.text}")
             return ""

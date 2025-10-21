@@ -3,6 +3,7 @@ from typing import Any
 import numpy as np
 
 from ..utils.textblock import TextBlock
+from ..utils.pipeline_utils import apply_newline_handling, STRIP_NEWLINES_ALL
 
 
 class TranslationEngine(ABC):
@@ -27,7 +28,7 @@ class TranslationEngine(ABC):
     def get_language_code(self, language: str) -> str:
         """
         Get standardized language code from language name.
-        
+
         Args:
             language: Language name
             
@@ -36,26 +37,29 @@ class TranslationEngine(ABC):
         """
         from ..utils.pipeline_utils import get_language_code
         return get_language_code(language)
-    
+
+    def set_newline_mode(self, newline_mode: str) -> None:
+        """Set the newline handling mode used during preprocessing."""
+        self.newline_mode = newline_mode or STRIP_NEWLINES_ALL
+
     def preprocess_text(self, blk_text: str, source_lang_code: str) -> str:
         """
         PreProcess text based on language:
         - Remove spaces for Chinese and Japanese languages
-        - Remove all newline/carriage-return characters
-        - Keep original text for other languages (aside from the newline removal)
-        
+        - Adjust newline characters based on the configured strip mode
+
         Args:
             blk_text (str): The input text to process
             source_lang_code (str): Language code of the source text
-        
+
         Returns:
             str: Processed text
         """
-        # Remove newline and carriage‐return characters
-        text = blk_text.replace('\r', '').replace('\n', '')
+        mode = getattr(self, 'newline_mode', STRIP_NEWLINES_ALL)
+        text = apply_newline_handling(blk_text, mode)
 
         source_lang_code = source_lang_code.lower()
-        
+
         # 2) If Chinese/Japanese, also remove all spaces
         if 'zh' in source_lang_code or source_lang_code == 'ja':
             return text.replace(' ', '')

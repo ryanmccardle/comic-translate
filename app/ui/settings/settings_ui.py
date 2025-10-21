@@ -60,6 +60,11 @@ class SettingsPageUI(QtWidgets.QWidget):
         self.inpaint_strategy = [self.tr('Resize'), self.tr('Original'), self.tr('Crop')]
         self.themes = [self.tr('Dark'), self.tr('Light')]
         self.alignment = [self.tr("Left"), self.tr("Center"), self.tr("Right")]
+        self.strip_newline_options = [
+            self.tr("Strip all"),
+            self.tr("Strip single only (preserve paragraph breaks)"),
+            self.tr("Strip none"),
+        ]
 
         self.credential_services = [self.tr("Custom"), self.tr("Deepseek"), self.tr("Open AI GPT"), self.tr("Microsoft Azure"), self.tr("Google Cloud"), 
                                     self.tr("Google Gemini"), self.tr("DeepL"), self.tr("Anthropic Claude"), self.tr("Yandex")]
@@ -126,6 +131,11 @@ class SettingsPageUI(QtWidgets.QWidget):
             self.tr("Original"): "Original",
             self.tr("Crop"): "Crop",
 
+            # OCR newline handling mappings
+            self.tr("Strip all"): "strip_all",
+            self.tr("Strip single only (preserve paragraph breaks)"): "strip_single",
+            self.tr("Strip none"): "strip_none",
+
             # Alignment mappings
             self.tr("Left"): "Left",
             self.tr("Center"): "Center",
@@ -168,6 +178,7 @@ class SettingsPageUI(QtWidgets.QWidget):
             detectors=self.detectors,
             inpainters=self.inpainters,
             inpaint_strategy=self.inpaint_strategy,
+            strip_newline_options=self.strip_newline_options,
             parent=self,
         )
         self.credentials_page = CredentialsPage(
@@ -190,6 +201,7 @@ class SettingsPageUI(QtWidgets.QWidget):
         self.detector_combo = self.tools_page.detector_combo
         self.inpainter_combo = self.tools_page.inpainter_combo
         self.inpaint_strategy_combo = self.tools_page.inpaint_strategy_combo
+        self.strip_newlines_combo = self.tools_page.strip_newlines_combo
         self.resize_spinbox = self.tools_page.resize_spinbox
         self.crop_margin_spinbox = self.tools_page.crop_margin_spinbox
         self.crop_trigger_spinbox = self.tools_page.crop_trigger_spinbox
