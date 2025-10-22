@@ -541,14 +541,36 @@ class ImageStateController:
             
             # Skip state loading for newly inserted images (they have empty blk_list)
             # This prevents loading of viewer state that might contain invalid transform data
-            if state.get('blk_list') or state.get('viewer_state', {}).get('rectangles'):
-                push_to_stack = state.get('viewer_state', {}).get('push_to_stack', False)
+            viewer_state = state.get('viewer_state', {})
+            rectangles = viewer_state.get('rectangles', [])
+            has_viewer_geometry = all(key in viewer_state for key in ('transform', 'center', 'scene_rect'))
 
-                self.main.blk_list = state['blk_list'].copy()  # Load a copy of the list, not a reference
-                self.main.image_viewer.load_state(state['viewer_state'])
+            if state.get('blk_list') or rectangles:
+                push_to_stack = viewer_state.get('push_to_stack', False)
+
+                self.main.blk_list = state.get('blk_list', []).copy()  # Load a copy of the list, not a reference
+
+                if has_viewer_geometry:
+                    self.main.image_viewer.load_state(viewer_state)
+                else:
+                    if self.main.blk_list:
+                        self.main.pipeline.load_box_coords(self.main.blk_list)
+                        viewer_state = self.main.image_viewer.save_state()
+                        if push_to_stack:
+                            viewer_state['push_to_stack'] = push_to_stack
+                        state['viewer_state'] = viewer_state
+                    else:
+                        if self.main.webtoon_mode:
+                            self.main.image_viewer.clear_rectangles(page_switch=True)
+                        else:
+                            self.main.image_viewer.clear_rectangles(page_switch=True)
+
                 self.main.s_combo.setCurrentText(state['source_lang'])
                 self.main.t_combo.setCurrentText(state['target_lang'])
                 self.main.image_viewer.load_brush_strokes(state['brush_strokes'])
+
+                viewer_state = state.get('viewer_state', {})
+                push_to_stack = viewer_state.get('push_to_stack', False)
 
                 if push_to_stack:
                     self.main.undo_stacks[file_path].beginMacro('text_items_rendered')

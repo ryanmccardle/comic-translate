@@ -304,10 +304,16 @@ class BatchProcessor:
             if self._should_cancel():
                 break
             context = self._build_processing_context(image_path, timestamp)
+            state = context['state']
             if context['state'].get('skip', False):
                 continue
             blk_list = self._detect_blocks_for_context(context)
             if not blk_list:
+                self._store_blk_list(image_path, [])
+                viewer_state = state.get('viewer_state', {})
+                if isinstance(viewer_state, dict):
+                    viewer_state.pop('rectangles', None)
+                    viewer_state.pop('text_items_state', None)
                 self.main_page.image_skipped.emit(image_path, "Text Blocks", "")
                 continue
             self._store_blk_list(image_path, blk_list)

@@ -376,6 +376,7 @@ class ComicTranslate(ComicTranslateUI):
             self.enable_hbutton_group()
             self.translate_button.setEnabled(True)
             self.auto_stage_checkbox.setEnabled(True)
+            self._after_stage_run(stage_name)
 
         def on_stage_error(error_tuple):
             self.progress_bar.setVisible(False)
@@ -390,6 +391,36 @@ class ComicTranslate(ComicTranslateUI):
             on_stage_error,
             on_stage_finished
         )
+
+    def _after_stage_run(self, stage_name: str):
+        if not self.image_files or self.curr_img_idx < 0:
+            return
+
+        current_path = self.image_files[self.curr_img_idx]
+        state = self.image_states.get(current_path, {})
+        blk_list = state.get('blk_list', [])
+
+        if stage_name in {
+            self.pipeline.batch_processor.STAGE_DETECT,
+            self.pipeline.batch_processor.STAGE_OCR,
+        }:
+            self.blk_list = blk_list
+            if blk_list:
+                self.pipeline.load_box_coords(blk_list)
+            else:
+                if self.webtoon_mode:
+                    self.image_viewer.clear_rectangles_in_visible_area()
+                else:
+                    self.image_viewer.clear_rectangles()
+            self.image_ctrl.save_image_state(current_path)
+
+            if stage_name == self.pipeline.batch_processor.STAGE_OCR and blk_list:
+                self.finish_ocr_translate()
+
+        elif stage_name == self.pipeline.batch_processor.STAGE_TRANSLATE:
+            self.blk_list = blk_list
+            if blk_list:
+                self.update_translated_text_items(False)
 
     def clear_operation_queue(self):
         """Clear all pending operations in the queue"""
