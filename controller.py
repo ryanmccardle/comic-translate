@@ -188,6 +188,8 @@ class ComicTranslate(ComicTranslateUI):
         self.outline_font_color_button.clicked.connect(self.text_ctrl.on_outline_color_change)
         self.outline_width_dropdown.currentTextChanged.connect(self.text_ctrl.on_outline_width_change)
         self.outline_checkbox.stateChanged.connect(self.text_ctrl.toggle_outline_settings)
+        self.apply_font_page_button.clicked.connect(self.text_ctrl.apply_font_to_page)
+        self.apply_font_project_button.clicked.connect(self.text_ctrl.apply_font_to_project)
 
         # Page List
         self.page_list.currentItemChanged.connect(self.image_ctrl.on_card_selected)

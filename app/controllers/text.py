@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import copy
 import numpy as np
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
 
 from PySide6 import QtCore
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QTextDocument
 
 from app.ui.commands.textformat import TextFormatCommand
 from app.ui.commands.box import AddTextItemCommand
-from app.ui.canvas.text_item import TextBlockItem
+from app.ui.canvas.text_item import TextBlockItem, OutlineInfo, OutlineType
 from app.ui.canvas.text.text_item_properties import TextItemProperties
 
 from modules.utils.textblock import TextBlock
@@ -20,6 +21,24 @@ from modules.utils.translator_utils import format_translations
 
 if TYPE_CHECKING:
     from controller import ComicTranslate
+
+
+@dataclass
+class FontSettings:
+    font_family: str
+    font_size: float
+    line_spacing: float
+    text_color: QColor
+    text_color_hex: str
+    alignment: QtCore.Qt.AlignmentFlag
+    bold: bool
+    italic: bool
+    underline: bool
+    outline_enabled: bool
+    outline_color: Optional[QColor]
+    outline_color_hex: Optional[str]
+    outline_width: float
+    direction: QtCore.Qt.LayoutDirection
 
 class TextController:
     def __init__(self, main: ComicTranslate):
@@ -321,6 +340,272 @@ class TextController:
 
                 command = TextFormatCommand(self.main.image_viewer, old_item, self.main.curr_tblock_item)
                 self.main.push_command(command)
+
+    # Bulk font application helpers
+    def apply_font_to_page(self):
+        settings = self._get_current_font_settings()
+        items = self._get_text_items_for_current_page()
+        if not items:
+            return
+
+        self._apply_font_settings_to_items(items, settings, self.main.tr("Apply font settings to page"))
+        self._update_state_for_page(settings)
+
+    def apply_font_to_project(self):
+        settings = self._get_current_font_settings()
+        items = list(self.main.image_viewer.text_items)
+
+        if items:
+            self._apply_font_settings_to_items(items, settings, self.main.tr("Apply font settings to project"))
+
+        self._update_state_for_page(settings)
+        self._update_all_states(settings)
+
+    def _get_current_font_settings(self) -> FontSettings:
+        render_settings = self.render_settings()
+
+        font_size_text = self.main.font_size_dropdown.currentText()
+        try:
+            font_size = float(font_size_text)
+        except (TypeError, ValueError):
+            font_size = float(render_settings.max_font_size)
+
+        try:
+            line_spacing = float(render_settings.line_spacing)
+        except (TypeError, ValueError):
+            line_spacing = 1.0
+
+        text_color = QColor(render_settings.color or '#000000')
+        outline_enabled = self.main.outline_checkbox.isChecked()
+
+        outline_color = QColor(render_settings.outline_color) if outline_enabled else None
+
+        try:
+            outline_width = float(render_settings.outline_width)
+        except (TypeError, ValueError):
+            outline_width = 1.0
+
+        alignment = self.main.button_to_alignment.get(render_settings.alignment_id, QtCore.Qt.AlignmentFlag.AlignLeft)
+
+        return FontSettings(
+            font_family=render_settings.font_family,
+            font_size=font_size,
+            line_spacing=line_spacing,
+            text_color=text_color,
+            text_color_hex=text_color.name(),
+            alignment=alignment,
+            bold=render_settings.bold,
+            italic=render_settings.italic,
+            underline=render_settings.underline,
+            outline_enabled=outline_enabled,
+            outline_color=outline_color,
+            outline_color_hex=outline_color.name() if outline_color else None,
+            outline_width=outline_width,
+            direction=render_settings.direction,
+        )
+
+    def _get_text_items_for_current_page(self) -> list[TextBlockItem]:
+        if not self.main.webtoon_mode:
+            return list(self.main.image_viewer.text_items)
+
+        page_idx = self.main.curr_img_idx
+        manager = getattr(self.main.image_viewer, 'webtoon_manager', None)
+        if manager is None or page_idx is None or page_idx < 0:
+            return []
+
+        positions = getattr(manager, 'image_positions', [])
+        if not positions or page_idx >= len(positions):
+            return list(self.main.image_viewer.text_items)
+
+        page_y_start = positions[page_idx]
+        heights = getattr(manager, 'image_heights', [])
+        if page_idx < len(positions) - 1:
+            page_y_end = positions[page_idx + 1]
+        else:
+            page_height = heights[page_idx] if page_idx < len(heights) else 0
+            page_y_end = page_y_start + page_height
+
+        results = []
+        for item in self.main.image_viewer.text_items:
+            pos_y = item.pos().y()
+            if page_y_start <= pos_y < page_y_end:
+                results.append(item)
+
+        return results
+
+    def _apply_font_settings_to_items(self, items: list[TextBlockItem], settings: FontSettings, macro_name: str):
+        if not items:
+            return
+
+        undo_stack = self.main.undo_group.activeStack()
+        if undo_stack is not None:
+            undo_stack.beginMacro(macro_name)
+
+        try:
+            for item in items:
+                old_item = copy.copy(item)
+
+                item.set_font(settings.font_family, settings.font_size)
+                item.set_font_size(settings.font_size)
+                item.set_line_spacing(settings.line_spacing)
+                item.set_color(settings.text_color)
+                item.set_alignment(settings.alignment)
+                item.set_bold(settings.bold)
+                item.set_italic(settings.italic)
+                item.set_underline(settings.underline)
+                item.set_direction(settings.direction)
+
+                if settings.outline_enabled and settings.outline_color is not None:
+                    item.set_outline(settings.outline_color, settings.outline_width)
+                else:
+                    item.set_outline(None, None)
+
+                command = TextFormatCommand(self.main.image_viewer, old_item, item)
+                self.main.push_command(command)
+
+                self._update_textblock_style(item, settings)
+        finally:
+            if undo_stack is not None:
+                undo_stack.endMacro()
+
+    def _update_textblock_style(self, item: TextBlockItem, settings: FontSettings):
+        x1, y1 = int(item.pos().x()), int(item.pos().y())
+        rotation = item.rotation()
+
+        blk = next(
+            (
+                blk for blk in self.main.blk_list
+                if is_close(blk.xyxy[0], x1, 5)
+                and is_close(blk.xyxy[1], y1, 5)
+                and is_close(blk.angle, rotation, 1)
+            ),
+            None,
+        )
+
+        if blk:
+            blk.line_spacing = settings.line_spacing
+            blk.alignment = self._alignment_to_string(settings.alignment)
+            blk.font_color = settings.text_color_hex
+
+    @staticmethod
+    def _alignment_to_string(alignment: QtCore.Qt.AlignmentFlag) -> str:
+        if alignment == QtCore.Qt.AlignmentFlag.AlignRight:
+            return 'right'
+        if alignment == QtCore.Qt.AlignmentFlag.AlignCenter:
+            return 'center'
+        return 'left'
+
+    def _calculate_outline_span(self, text: str) -> int:
+        doc = QTextDocument()
+        if text:
+            doc.setHtml(text)
+        return max(0, doc.characterCount() - 1)
+
+    def _build_outline_objects(self, text: str, settings: FontSettings) -> list[OutlineInfo]:
+        if not settings.outline_enabled or not settings.outline_color:
+            return []
+
+        end = self._calculate_outline_span(text)
+        return [
+            OutlineInfo(
+                start=0,
+                end=end,
+                color=settings.outline_color,
+                width=settings.outline_width,
+                type=OutlineType.Full_Document,
+            )
+        ]
+
+    def _apply_settings_to_text_states(self, text_states, settings: FontSettings):
+        if not text_states:
+            return
+
+        for idx, text_state in enumerate(text_states):
+            if hasattr(text_state, 'font_family'):
+                text_state.font_family = settings.font_family
+                text_state.font_size = settings.font_size
+                text_state.line_spacing = settings.line_spacing
+                text_state.bold = settings.bold
+                text_state.italic = settings.italic
+                text_state.underline = settings.underline
+                text_state.alignment = settings.alignment
+                text_state.direction = settings.direction
+                text_state.text_color = settings.text_color
+                text_state.outline_width = settings.outline_width if settings.outline_enabled else 0
+                text_state.outline_color = settings.outline_color if settings.outline_enabled else None
+                text_state.selection_outlines = self._build_outline_objects(text_state.text, settings)
+            elif isinstance(text_state, dict):
+                text_state['font_family'] = settings.font_family
+                text_state['font_size'] = settings.font_size
+                text_state['line_spacing'] = settings.line_spacing
+                text_state['bold'] = settings.bold
+                text_state['italic'] = settings.italic
+                text_state['underline'] = settings.underline
+                text_state['alignment'] = int(settings.alignment)
+                text_state['direction'] = settings.direction
+                text_state['text_color'] = settings.text_color
+                text_state['outline_width'] = settings.outline_width if settings.outline_enabled else 0
+                text_state['outline_color'] = settings.outline_color if settings.outline_enabled else None
+                text_state['selection_outlines'] = self._build_outline_objects(text_state.get('text', ''), settings)
+                text_states[idx] = text_state
+
+    def _update_saved_blk_list_styles(self, blocks, settings: FontSettings):
+        if not blocks:
+            return
+
+        alignment_str = self._alignment_to_string(settings.alignment)
+
+        for blk in blocks:
+            if hasattr(blk, 'line_spacing'):
+                blk.line_spacing = settings.line_spacing
+                blk.alignment = alignment_str
+                blk.font_color = settings.text_color_hex
+            elif isinstance(blk, dict):
+                blk['line_spacing'] = settings.line_spacing
+                blk['alignment'] = alignment_str
+                blk['font_color'] = settings.text_color_hex
+
+    def _update_state_for_page(self, settings: FontSettings, page_idx: Optional[int] = None):
+        if page_idx is None:
+            page_idx = self.main.curr_img_idx
+
+        if page_idx is None or page_idx < 0 or page_idx >= len(self.main.image_files):
+            return
+
+        file_path = self.main.image_files[page_idx]
+        state = self.main.image_states.get(file_path)
+        if state is None:
+            return
+
+        if not self.main.webtoon_mode:
+            viewer_state = self.main.image_viewer.save_state()
+            self._apply_settings_to_text_states(viewer_state.get('text_items_state', []), settings)
+            state['viewer_state'] = viewer_state
+            state['brush_strokes'] = self.main.image_viewer.save_brush_strokes()
+            state['source_lang'] = self.main.s_combo.currentText()
+            state['target_lang'] = self.main.t_combo.currentText()
+            state['blk_list'] = self.main.blk_list.copy()
+        else:
+            viewer_state = state.setdefault('viewer_state', {})
+            page_state = self.main.project_ctrl._create_text_items_state_from_scene(page_idx)
+            text_states = page_state.get('text_items_state', [])
+            self._apply_settings_to_text_states(text_states, settings)
+            viewer_state['text_items_state'] = text_states
+            self._update_saved_blk_list_styles(state.get('blk_list', []), settings)
+
+    def _update_all_states(self, settings: FontSettings):
+        current_idx = self.main.curr_img_idx
+
+        for idx, file_path in enumerate(self.main.image_files):
+            state = self.main.image_states.get(file_path)
+            if state is None or idx == current_idx:
+                continue
+
+            self._update_saved_blk_list_styles(state.get('blk_list', []), settings)
+
+            viewer_state = state.get('viewer_state')
+            if viewer_state:
+                self._apply_settings_to_text_states(viewer_state.get('text_items_state', []), settings)
 
     # Widget helpers
     def block_text_item_widgets(self, widgets):

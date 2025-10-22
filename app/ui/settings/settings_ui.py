@@ -56,7 +56,15 @@ class SettingsPageUI(QtWidgets.QWidget):
 
         self.inpainters = ['LaMa', 'AOT']
         self.detectors = ['RT-DETR-v2']
-        self.ocr_engines = [self.tr("Default"), self.tr('Microsoft OCR'), self.tr('Google Cloud Vision'), self.tr('Gemini-2.0-Flash'), self.tr('GPT-4.1-mini')]
+        self.ocr_engines = [
+            self.tr("Default"),
+            self.tr('Microsoft OCR'),
+            self.tr('Google Cloud Vision'),
+            self.tr('Gemini-2.0-Flash'),
+            self.tr('GPT-4.1-mini'),
+            self.tr('GPT-5-mini'),
+            self.tr('GPT-5-nano'),
+        ]
         self.inpaint_strategy = [self.tr('Resize'), self.tr('Original'), self.tr('Crop')]
         self.themes = [self.tr('Dark'), self.tr('Light')]
         self.alignment = [self.tr("Left"), self.tr("Center"), self.tr("Right")]
@@ -69,7 +77,7 @@ class SettingsPageUI(QtWidgets.QWidget):
         self.credential_services = [self.tr("Custom"), self.tr("Deepseek"), self.tr("Open AI GPT"), self.tr("Microsoft Azure"), self.tr("Google Cloud"), 
                                     self.tr("Google Gemini"), self.tr("DeepL"), self.tr("Anthropic Claude"), self.tr("Yandex")]
         
-        self.supported_translators = [self.tr("GPT-4.1"), self.tr("GPT-4.1-mini"), self.tr("DeepL"), 
+        self.supported_translators = [self.tr("GPT-4.1"), self.tr("GPT-4.1-mini"), self.tr("GPT-5-mini"), self.tr("GPT-5-nano"), self.tr("DeepL"),
                                     self.tr("Claude-4.5-Sonnet"), self.tr("Claude-4.5-Haiku"),
                                     self.tr("Gemini-2.5-Flash"), self.tr("Yandex"), self.tr("Google Translate"),
                                     self.tr("Microsoft Translator"), self.tr("Deepseek-v3"), self.tr("Custom"),]
@@ -105,6 +113,8 @@ class SettingsPageUI(QtWidgets.QWidget):
             self.tr("Deepseek-v3"): "Deepseek-v3",
             self.tr("GPT-4.1"): "GPT-4.1",
             self.tr("GPT-4.1-mini"): "GPT-4.1-mini",
+            self.tr("GPT-5-mini"): "GPT-5-mini",
+            self.tr("GPT-5-nano"): "GPT-5-nano",
             self.tr("DeepL"): "DeepL",
             self.tr("Claude-4.5-Sonnet"): "Claude-4.5-Sonnet",
             self.tr("Claude-4.5-Haiku"): "Claude-4.5-Haiku",
@@ -118,6 +128,9 @@ class SettingsPageUI(QtWidgets.QWidget):
             self.tr("Default"): "Default",
             self.tr("Microsoft OCR"): "Microsoft OCR",
             self.tr("Google Cloud Vision"): "Google Cloud Vision",
+            self.tr("GPT-4.1-mini"): "GPT-4.1-mini",
+            self.tr("GPT-5-mini"): "GPT-5-mini",
+            self.tr("GPT-5-nano"): "GPT-5-nano",
 
             # Inpainter mappings
             "LaMa": "LaMa",

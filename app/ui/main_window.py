@@ -512,12 +512,22 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         outline_settings_layout.addWidget(self.outline_width_dropdown)
         outline_settings_layout.addStretch()
 
+        font_apply_layout = QtWidgets.QHBoxLayout()
+        self.apply_font_page_button = MPushButton(self.tr("Apply font to page"))
+        self.apply_font_page_button.setToolTip(self.tr("Apply the current font settings to every textbox on this page."))
+        self.apply_font_project_button = MPushButton(self.tr("Apply font to project"))
+        self.apply_font_project_button.setToolTip(self.tr("Apply the current font settings to every textbox in the project."))
+        font_apply_layout.addWidget(self.apply_font_page_button)
+        font_apply_layout.addWidget(self.apply_font_project_button)
+        font_apply_layout.addStretch()
+
         rendering_divider_top = MDivider()
         rendering_divider_bottom = MDivider()
         text_render_layout.addWidget(rendering_divider_top)
         text_render_layout.addLayout(font_settings_layout)
         text_render_layout.addLayout(main_text_settings_layout)
         text_render_layout.addLayout(outline_settings_layout)
+        text_render_layout.addLayout(font_apply_layout)
         text_render_layout.addWidget(rendering_divider_bottom)
 
         # Tools Layout
