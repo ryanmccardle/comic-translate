@@ -106,10 +106,14 @@ class ComicTranslatePipeline:
     def batch_process(self, selected_paths=None):
         """Regular batch processing."""
         return self.batch_processor.batch_process(selected_paths)
-    
+
     def webtoon_batch_process(self, selected_paths=None):
         """Webtoon batch processing with overlapping sliding windows."""
         return self.webtoon_batch_processor.webtoon_batch_process(selected_paths)
+
+    def run_batch_stage(self, stage_name: str, selected_paths=None):
+        """Run a specific stage across all images."""
+        return self.batch_processor.run_stage(stage_name, selected_paths)
 
     # Segmentation methods (delegate to segmentation_handler)
     def segment_webtoon_visible_area(self):

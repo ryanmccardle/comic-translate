@@ -141,7 +141,7 @@ class ComicTranslate(ComicTranslateUI):
         self.hbutton_group.get_button_group().buttons()[2].clicked.connect(self.translate_image)
         self.hbutton_group.get_button_group().buttons()[3].clicked.connect(self.load_segmentation_points)
         self.hbutton_group.get_button_group().buttons()[4].clicked.connect(self.inpaint_and_set)
-        self.hbutton_group.get_button_group().buttons()[5].clicked.connect(self.text_ctrl.render_text)
+        self.hbutton_group.get_button_group().buttons()[5].clicked.connect(self.handle_render_clicked)
 
         self.undo_tool_group.get_button_group().buttons()[0].clicked.connect(self.undo_group.undo)
         self.undo_tool_group.get_button_group().buttons()[1].clicked.connect(self.undo_group.redo)
@@ -242,14 +242,16 @@ class ComicTranslate(ComicTranslateUI):
             self.undo_group.activeStack().push(command)
 
     def batch_mode_selected(self):
-        self.disable_hbutton_group()
+        self.enable_hbutton_group()
         self.translate_button.setEnabled(True)
         self.cancel_button.setEnabled(True)
+        self.auto_stage_checkbox.setVisible(True)
 
     def manual_mode_selected(self):
         self.enable_hbutton_group()
         self.translate_button.setEnabled(False)
         self.cancel_button.setEnabled(False)
+        self.auto_stage_checkbox.setVisible(False)
 
     def on_manual_finished(self):
         self.loading.setVisible(False)
@@ -346,15 +348,48 @@ class ComicTranslate(ComicTranslateUI):
         self.current_worker = worker
         self.threadpool.start(worker)
 
-    def run_threaded_immediate(self, callback: Callable, result_callback: Callable=None, 
-                              error_callback: Callable=None, finished_callback: Callable=None, 
+    def run_threaded_immediate(self, callback: Callable, result_callback: Callable=None,
+                              error_callback: Callable=None, finished_callback: Callable=None,
                               *args, **kwargs):
         """
         Run a threaded operation immediately without queuing (bypass the queue)
         Use this if you need the old behavior for specific operations
         """
-        return self._execute_single_operation(callback, result_callback, error_callback, 
+        return self._execute_single_operation(callback, result_callback, error_callback,
                                             finished_callback, *args, **kwargs)
+
+    def should_run_stage_on_all_pages(self) -> bool:
+        return self.automatic_radio.isChecked() and self.auto_stage_checkbox.isChecked()
+
+    def _run_stage_for_all_pages(self, stage_name: str):
+        if not self.image_files:
+            return
+
+        self.disable_hbutton_group()
+        self.translate_button.setEnabled(False)
+        self.auto_stage_checkbox.setEnabled(False)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(True)
+
+        def on_stage_finished():
+            self.progress_bar.setVisible(False)
+            self.enable_hbutton_group()
+            self.translate_button.setEnabled(True)
+            self.auto_stage_checkbox.setEnabled(True)
+
+        def on_stage_error(error_tuple):
+            self.progress_bar.setVisible(False)
+            self.enable_hbutton_group()
+            self.translate_button.setEnabled(True)
+            self.auto_stage_checkbox.setEnabled(True)
+            self.default_error_handler(error_tuple)
+
+        self.run_threaded(
+            lambda: self.pipeline.run_batch_stage(stage_name),
+            None,
+            on_stage_error,
+            on_stage_finished
+        )
 
     def clear_operation_queue(self):
         """Clear all pending operations in the queue"""
@@ -473,9 +508,12 @@ class ComicTranslate(ComicTranslateUI):
             button.setEnabled(True)
 
     def block_detect(self, load_rects: bool = True):
+        if self.should_run_stage_on_all_pages():
+            self._run_stage_for_all_pages(self.pipeline.batch_processor.STAGE_DETECT)
+            return
         self.loading.setVisible(True)
         self.disable_hbutton_group()
-        self.run_threaded(self.pipeline.detect_blocks, self.pipeline.on_blk_detect_complete, 
+        self.run_threaded(self.pipeline.detect_blocks, self.pipeline.on_blk_detect_complete,
                           self.default_error_handler, self.on_manual_finished, load_rects)
 
     def finish_ocr_translate(self, single_block=False):
@@ -497,11 +535,19 @@ class ComicTranslate(ComicTranslateUI):
 
     def ocr(self, single_block=False):
         source_lang = self.s_combo.currentText()
+        if self.should_run_stage_on_all_pages():
+            for image_path in self.image_files:
+                img_state = self.image_states.get(image_path, {})
+                img_source = img_state.get('source_lang', source_lang)
+                if not validate_ocr(self, img_source):
+                    return
+            self._run_stage_for_all_pages(self.pipeline.batch_processor.STAGE_OCR)
+            return
         if not validate_ocr(self, source_lang):
             return
         self.loading.setVisible(True)
         self.disable_hbutton_group()
-        
+
         # Handle webtoon mode specially for visible area OCR
         if self.webtoon_mode:
             self.run_threaded(
@@ -521,11 +567,20 @@ class ComicTranslate(ComicTranslateUI):
     def translate_image(self, single_block=False):
         source_lang = self.s_combo.currentText()
         target_lang = self.t_combo.currentText()
+        if self.should_run_stage_on_all_pages():
+            for image_path in self.image_files:
+                state = self.image_states.get(image_path, {})
+                img_source = state.get('source_lang', source_lang)
+                img_target = state.get('target_lang', target_lang)
+                if not validate_translator(self, img_source, img_target):
+                    return
+            self._run_stage_for_all_pages(self.pipeline.batch_processor.STAGE_TRANSLATE)
+            return
         if not is_there_text(self.blk_list) or not validate_translator(self, source_lang, target_lang):
             return
         self.loading.setVisible(True)
         self.disable_hbutton_group()
-        
+
         # Handle webtoon mode specially for visible area translation
         if self.webtoon_mode:
             self.run_threaded(
@@ -626,15 +681,24 @@ class ComicTranslate(ComicTranslateUI):
         )
 
     def inpaint_and_set(self):
+        if self.should_run_stage_on_all_pages():
+            self._run_stage_for_all_pages(self.pipeline.batch_processor.STAGE_CLEAN)
+            return
         if self.image_viewer.hasPhoto() and self.image_viewer.has_drawn_elements():
             self.text_ctrl.clear_text_edits()
             self.loading.setVisible(True)
             self.disable_hbutton_group()
             self.undo_group.activeStack().beginMacro('inpaint')
-            self.run_threaded(self.pipeline.inpaint, self.pipeline.inpaint_complete, 
+            self.run_threaded(self.pipeline.inpaint, self.pipeline.inpaint_complete,
                               self.default_error_handler, self.on_manual_finished)
 
-    def blk_detect_segment(self, result): 
+    def handle_render_clicked(self):
+        if self.should_run_stage_on_all_pages():
+            self._run_stage_for_all_pages(self.pipeline.batch_processor.STAGE_RENDER)
+            return
+        self.text_ctrl.render_text()
+
+    def blk_detect_segment(self, result):
         # Handle both old (2-tuple) and new (3-tuple) result formats
         if len(result) == 3:
             blk_list, load_rects, _ = result
@@ -649,6 +713,9 @@ class ComicTranslate(ComicTranslateUI):
         self.undo_group.activeStack().endMacro()
 
     def load_segmentation_points(self):
+        if self.should_run_stage_on_all_pages():
+            self._run_stage_for_all_pages(self.pipeline.batch_processor.STAGE_SEGMENT)
+            return
         if self.image_viewer.hasPhoto():
             self.text_ctrl.clear_text_edits()
             self.set_tool('brush')

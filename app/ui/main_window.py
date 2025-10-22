@@ -327,10 +327,15 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         self.automatic_radio = MRadioButton(self.tr("Automatic"))
         self.automatic_radio.setChecked(True)
         self.automatic_radio.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
-        
+
+        self.auto_stage_checkbox = MCheckBox(self.tr("Run steps on all pages"))
+        self.auto_stage_checkbox.setChecked(True)
+        self.auto_stage_checkbox.setVisible(False)
+        self.auto_stage_checkbox.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+
         # Webtoon mode toggle
         self.webtoon_toggle = MToolButton()
-        self.webtoon_toggle.set_dayu_svg("webtoon-toggle.svg") 
+        self.webtoon_toggle.set_dayu_svg("webtoon-toggle.svg")
         self.webtoon_toggle.huge()
         self.webtoon_toggle.setCheckable(True)
         self.webtoon_toggle.setToolTip(self.tr("Toggle Webtoon Mode. " \
@@ -351,6 +356,7 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         header_layout.addWidget(self.webtoon_toggle)
         header_layout.addWidget(self.manual_radio)
         header_layout.addWidget(self.automatic_radio)
+        header_layout.addWidget(self.auto_stage_checkbox)
         header_layout.addWidget(self.translate_button)
         header_layout.addWidget(self.cancel_button)
 
