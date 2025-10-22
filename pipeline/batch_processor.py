@@ -128,9 +128,18 @@ class BatchProcessor:
             return True
         return False
 
-    def _store_blk_list(self, image_path: str, blk_list: list) -> None:
+    def _store_blk_list(self, image_path: str, blk_list: list, clear_viewer_state: bool = False) -> None:
         state = self._ensure_image_state_defaults(image_path)
         state['blk_list'] = blk_list
+
+        if clear_viewer_state:
+            viewer_state = state.get('viewer_state', {})
+            if not isinstance(viewer_state, dict):
+                viewer_state = {}
+            for key in ('rectangles', 'text_items_state', 'transform', 'center', 'scene_rect', 'push_to_stack'):
+                viewer_state.pop(key, None)
+            state['viewer_state'] = viewer_state
+
         if (self.main_page.image_files and
                 0 <= self.main_page.curr_img_idx < len(self.main_page.image_files) and
                 self.main_page.image_files[self.main_page.curr_img_idx] == image_path):
@@ -309,14 +318,10 @@ class BatchProcessor:
                 continue
             blk_list = self._detect_blocks_for_context(context)
             if not blk_list:
-                self._store_blk_list(image_path, [])
-                viewer_state = state.get('viewer_state', {})
-                if isinstance(viewer_state, dict):
-                    viewer_state.pop('rectangles', None)
-                    viewer_state.pop('text_items_state', None)
+                self._store_blk_list(image_path, [], clear_viewer_state=True)
                 self.main_page.image_skipped.emit(image_path, "Text Blocks", "")
                 continue
-            self._store_blk_list(image_path, blk_list)
+            self._store_blk_list(image_path, blk_list, clear_viewer_state=True)
             self._single_stage_progress(index, total_images, 1, 1, False)
 
     def _run_ocr_stage(self, image_list: List[str], timestamp: str | None, total_images: int) -> None:

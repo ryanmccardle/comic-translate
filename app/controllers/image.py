@@ -542,13 +542,22 @@ class ImageStateController:
             # Skip state loading for newly inserted images (they have empty blk_list)
             # This prevents loading of viewer state that might contain invalid transform data
             viewer_state = state.get('viewer_state', {})
-            rectangles = viewer_state.get('rectangles', [])
-            has_viewer_geometry = all(key in viewer_state for key in ('transform', 'center', 'scene_rect'))
+            stored_blk_list = state.get('blk_list', [])
+            rectangles = []
+            if isinstance(viewer_state, dict):
+                rectangles = viewer_state.get('rectangles', [])
 
-            if state.get('blk_list') or rectangles:
-                push_to_stack = viewer_state.get('push_to_stack', False)
+            rebuild_from_blocks = bool(stored_blk_list) and not rectangles
+            has_viewer_geometry = (
+                isinstance(viewer_state, dict)
+                and all(key in viewer_state for key in ('transform', 'center', 'scene_rect', 'rectangles'))
+                and not rebuild_from_blocks
+            )
 
-                self.main.blk_list = state.get('blk_list', []).copy()  # Load a copy of the list, not a reference
+            if stored_blk_list or rectangles:
+                push_to_stack = viewer_state.get('push_to_stack', False) if isinstance(viewer_state, dict) else False
+
+                self.main.blk_list = stored_blk_list.copy()  # Load a copy of the list, not a reference
 
                 if has_viewer_geometry:
                     self.main.image_viewer.load_state(viewer_state)
