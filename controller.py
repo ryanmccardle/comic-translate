@@ -605,10 +605,12 @@ class ComicTranslate(ComicTranslateUI):
         return get_visible_text_items(self.image_viewer.text_items, self.image_viewer.webtoon_manager)
 
     def update_translated_text_items(self, single_blk: bool):
-        def set_new_text(text_item, wrapped, font_size):
+        def set_new_text(text_item, wrapped, font_size, target_width):
             if any(lang in trg_lng_cd.lower() for lang in ['zh', 'ja', 'th']):
                 wrapped = wrapped.replace(' ', '')
             text_item.set_plain_text(wrapped)
+            if target_width:
+                text_item.setTextWidth(target_width)
             text_item.set_font_size(font_size)
 
         # Get visible text items instead of all text items
@@ -642,10 +644,11 @@ class ComicTranslate(ComicTranslateUI):
                 if not (blk and blk.translation):
                     continue
 
+                block_width = max(1, int(blk.xyxy[2] - blk.xyxy[0]))
                 wrap_args = (
                     blk.translation,
                     text_item.font_family,
-                    blk.xyxy[2] - blk.xyxy[0],
+                    block_width,
                     blk.xyxy[3] - blk.xyxy[1],
                     float(text_item.line_spacing),
                     float(text_item.outline_width),
@@ -661,7 +664,7 @@ class ComicTranslate(ComicTranslateUI):
                 # enqueue the word-wrap
                 self.run_threaded(
                     pyside_word_wrap,
-                    lambda wrap_res, ti=text_item: set_new_text(ti, wrap_res[0], wrap_res[1]),
+                    lambda wrap_res, ti=text_item, bw=block_width: set_new_text(ti, wrap_res[0], wrap_res[1], bw),
                     self.default_error_handler,
                     None,
                     *wrap_args

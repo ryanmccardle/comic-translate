@@ -94,6 +94,8 @@ class TextController:
         underline = render_settings.underline
         direction = render_settings.direction
 
+        block_width = max(1, int(blk.xyxy[2] - blk.xyxy[0]))
+
         properties = TextItemProperties(
             text=text,
             font_family=font_family,
@@ -109,10 +111,12 @@ class TextController:
             direction=direction,
             position=(blk.xyxy[0], blk.xyxy[1]),
             rotation=blk.angle,
+            width=block_width,
         )
-        
+
         text_item = self.main.image_viewer.add_text_item(properties)
         text_item.set_plain_text(text)
+        text_item.setTextWidth(block_width)
 
         command = AddTextItemCommand(self.main, text_item)
         self.main.push_command(command)

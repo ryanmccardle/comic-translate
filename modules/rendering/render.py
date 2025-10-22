@@ -154,32 +154,33 @@ def get_best_render_area(blk_list: List[TextBlock], img, inpainted_img):
 def pyside_word_wrap(text: str, font_input: str, roi_width: int, roi_height: int,
                     line_spacing, outline_width, bold, italic, underline,
                     alignment, direction, init_font_size: int, min_font_size: int = 10) -> Tuple[str, int]:
-    """Break long text to multiple lines, and find the largest point size
-        so that all wrapped text fits within the box."""
-    
-    def prepare_font(font_size):
+    """Determine the largest point size that fits ``text`` inside the ROI.
+
+    The string itself is left untouched so any existing newlines from OCR or
+    manual edits are preserved. We rely on Qt's layout engine to perform the
+    wrapping which matches how the text items are rendered in the scene."""
+
+    outline_width = float(outline_width)
+    line_spacing = float(line_spacing)
+
+    def prepare_font(font_size: int) -> QFont:
         effective_family = font_input.strip() if isinstance(font_input, str) and font_input.strip() else QApplication.font().family()
         font = QFont(effective_family, font_size)
         font.setBold(bold)
         font.setItalic(italic)
         font.setUnderline(underline)
-
         return font
-    
-    def eval_metrics(txt: str, font_sz: float) -> Tuple[float, float]:
-        """Quick helper function to calculate width/height of text using QTextDocument."""
-        
-        # Create a QTextDocument
+
+    def eval_metrics(font_sz: int) -> Tuple[float, float]:
         doc = QTextDocument()
         doc.setDefaultFont(prepare_font(font_sz))
-        doc.setPlainText(txt)
+        doc.setPlainText(text)
 
-        # Set text direction
         text_option = QTextOption()
         text_option.setTextDirection(direction)
+        text_option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
         doc.setDefaultTextOption(text_option)
-        
-        # Apply line spacing
+
         cursor = QTextCursor(doc)
         cursor.select(QTextCursor.SelectionType.Document)
         block_format = QTextBlockFormat()
@@ -187,60 +188,41 @@ def pyside_word_wrap(text: str, font_input: str, roi_width: int, roi_height: int
         block_format.setLineHeight(spacing, QTextBlockFormat.LineHeightTypes.ProportionalHeight.value)
         block_format.setAlignment(alignment)
         cursor.mergeBlockFormat(block_format)
-        
-        # Get the size of the document
+
+        effective_width = max(1.0, float(roi_width) - 2.0 * outline_width)
+        doc.setTextWidth(effective_width)
+        doc.adjustSize()
+
         size = doc.size()
         width, height = size.width(), size.height()
-        
-        # Add outline width to the size
+
         if outline_width > 0:
             width += 2 * outline_width
             height += 2 * outline_width
-        
+
         return width, height
 
-    def wrap_and_size(font_size):
-        words = text.split()
-        lines = []
-        # build lines greedily
-        while words:
-            line = words.pop(0)
-            # try extending the current line
-            while words:
-                test = f"{line} {words[0]}"
-                w, _ = eval_metrics(test, font_size)
-                if w <= roi_width:
-                    line = test
-                    words.pop(0)
-                else:
-                    break
-            lines.append(line)
-        wrapped = "\n".join(lines)
-        # measure wrapped block
-        w, h = eval_metrics(wrapped, font_size)
-        return wrapped, w, h
-    
-    # Initialize
-    best_text, best_size = text, init_font_size
-    found_fit = False
+    init_font_size = int(init_font_size)
+    min_font_size = int(min_font_size)
 
-    lo, hi = min_font_size, init_font_size
+    best_size = min_font_size
+    fit_found = False
+
+    lo, hi = min_font_size, max(min_font_size, init_font_size)
     while lo <= hi:
         mid = (lo + hi) // 2
-        wrapped, w, h = wrap_and_size(mid)
-        if w <= roi_width and h <= roi_height:
-            found_fit = True
-            best_text, best_size = wrapped, mid
+        width, height = eval_metrics(mid)
+        if width <= roi_width and height <= roi_height:
+            fit_found = True
+            best_size = mid
             lo = mid + 1
         else:
             hi = mid - 1
 
-    # if nothing ever fit, force a wrap at the minimum size
-    if not found_fit:
-        best_text, w, h = wrap_and_size(min_font_size)
+    if not fit_found:
         best_size = min_font_size
 
-    return best_text, best_size
+    return text, best_size
 
     # mutable_message = text
     # font_size = init_font_size
