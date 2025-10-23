@@ -563,7 +563,28 @@ class ImageStateController:
                     self.main.image_viewer.load_state(viewer_state)
                 else:
                     if self.main.blk_list:
+                        stored_viewer_state = viewer_state if isinstance(viewer_state, dict) else {}
+                        stored_text_items = stored_viewer_state.get('text_items_state', [])
+                        stored_transform = stored_viewer_state.get('transform')
+                        stored_center = stored_viewer_state.get('center')
+                        stored_scene_rect = stored_viewer_state.get('scene_rect')
+
                         self.main.pipeline.load_box_coords(self.main.blk_list)
+
+                        if (
+                            stored_transform
+                            and stored_center
+                            and stored_scene_rect
+                            and len(stored_transform) == 9
+                        ):
+                            transform = QtGui.QTransform(*stored_transform)
+                            self.main.image_viewer.setTransform(transform)
+                            self.main.image_viewer.centerOn(QtCore.QPointF(*stored_center))
+                            self.main.image_viewer.setSceneRect(QtCore.QRectF(*stored_scene_rect))
+
+                        for text_state in stored_text_items:
+                            self.main.image_viewer.add_text_item(text_state)
+
                         viewer_state = self.main.image_viewer.save_state()
                         if push_to_stack:
                             viewer_state['push_to_stack'] = push_to_stack
