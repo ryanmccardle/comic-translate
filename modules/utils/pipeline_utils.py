@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import base64
+import re
 from PySide6.QtCore import Qt
 
 import imkit as imk
@@ -77,7 +78,13 @@ def encode_image_array(img_array: np.ndarray):
     img_bytes = imk.encode_image(img_array, ".png")
     return base64.b64encode(img_bytes).decode('utf-8')
 
-def lists_to_blk_list(blk_list: list[TextBlock], texts_bboxes: list, texts_string: list):  
+STRIP_NEWLINES_ALL = "strip_all"
+STRIP_NEWLINES_SINGLE = "strip_single"
+STRIP_NEWLINES_NONE = "strip_none"
+_NEWLINE_PLACEHOLDER = "\uF000"
+
+
+def lists_to_blk_list(blk_list: list[TextBlock], texts_bboxes: list, texts_string: list):
     group = list(zip(texts_bboxes, texts_string))  
 
     for blk in blk_list:
@@ -94,9 +101,41 @@ def lists_to_blk_list(blk_list: list[TextBlock], texts_bboxes: list, texts_strin
         if blk.source_lang in ['ja', 'zh']:
             blk.text = ''.join(text for bbox, text in sorted_entries)
         else:
-            blk.text = ' '.join(text for bbox, text in sorted_entries)
+            blk.text = '\n'.join(text for bbox, text in sorted_entries)
 
     return blk_list
+
+
+def apply_newline_handling(text: str, mode: str) -> str:
+    """Normalize newline characters according to the configured strip mode."""
+    if not isinstance(text, str) or not text:
+        return text or ""
+
+    normalized = text.replace('\r\n', '\n').replace('\r', '\n')
+
+    if mode == STRIP_NEWLINES_NONE:
+        return normalized
+
+    if mode == STRIP_NEWLINES_ALL:
+        return normalized.replace('\n', ' ')
+
+    if mode == STRIP_NEWLINES_SINGLE:
+        def _preserve(match: re.Match) -> str:
+            return f"{_NEWLINE_PLACEHOLDER}{len(match.group(0))};"
+
+        preserved = re.sub(r"\n{2,}", _preserve, normalized)
+        trimmed = re.sub(r"[ \t\f\v]*\n[ \t\f\v]*", "\n", preserved)
+        replaced = trimmed.replace('\n', ' ')
+
+        def _restore(match: re.Match) -> str:
+            count = int(match.group(1))
+            return '\n' * count
+
+        restored = re.sub(fr"{re.escape(_NEWLINE_PLACEHOLDER)}(\d+);", _restore, replaced)
+        restored = re.sub(r"[ \t\f\v]*\n{2,}[ \t\f\v]*", lambda m: '\n' * m.group(0).count('\n'), restored)
+        return restored
+
+    return normalized
 
 
 def generate_mask(img: np.ndarray, blk_list: list[TextBlock], default_padding: int = 5) -> np.ndarray:
@@ -227,7 +266,7 @@ def validate_ocr(main_page, source_lang):
             return False
 
     # GPT-based OCR
-    elif ocr_tool == tr('GPT-4.1-mini'):
+    elif ocr_tool in {tr('GPT-4.1-mini'), tr('GPT-5-mini'), tr('GPT-5-nano')}:
         service = tr('Open AI GPT')
         if not has_access(service, 'api_key'):
             Messages.show_signup_or_credentials_error(main_page)

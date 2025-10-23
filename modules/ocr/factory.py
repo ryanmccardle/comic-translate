@@ -129,6 +129,8 @@ class OCRFactory:
             'Microsoft OCR': cls._create_microsoft_ocr,
             'Google Cloud Vision': cls._create_google_ocr,
             'GPT-4.1-mini': lambda s: cls._create_gpt_ocr(s, ocr_model),
+            'GPT-5-mini': lambda s: cls._create_gpt_ocr(s, ocr_model),
+            'GPT-5-nano': lambda s: cls._create_gpt_ocr(s, ocr_model),
             'Gemini-2.0-Flash': lambda s: cls._create_gemini_ocr(s, ocr_model),
         }
         

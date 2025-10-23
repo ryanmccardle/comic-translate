@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QGraphicsTextItem, QGraphicsItem, \
      QApplication, QWidget, QStyleOptionGraphicsItem
 from PySide6.QtGui import QFont, QCursor, QColor, \
-     QTextCharFormat, QTextBlockFormat, QTextCursor, QPainter
+     QTextCharFormat, QTextBlockFormat, QTextCursor, QTextOption, QPainter
 from PySide6.QtCore import Qt, QRectF, Signal, QPointF
 import math, copy
 from dataclasses import dataclass
@@ -75,18 +75,19 @@ class TextBlockItem(QGraphicsTextItem):
         self.resize_handle = None
         self.resize_start = None
         self.editing_mode = False
-        self.last_selection = None 
+        self.last_selection = None
 
         # Rotation properties
         self.rot_handle = None
         self.rotating = False
         self.last_rotation_angle = 0
         self.rotation_smoothing = 1.0  # rotation sensitivity
-        self.center_scene_pos = None  
+        self.center_scene_pos = None
 
         self.old_state = None
 
         self.selection_outlines = []
+        self.fixed_text_width = None
 
         self.setAcceptHoverEvents(True)
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
@@ -104,6 +105,7 @@ class TextBlockItem(QGraphicsTextItem):
     def _apply_text_direction(self):
         text_option = self.document().defaultTextOption()
         text_option.setTextDirection(self.direction)
+        text_option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
         self.document().setDefaultTextOption(text_option)
 
     def set_direction(self, direction):
@@ -113,9 +115,13 @@ class TextBlockItem(QGraphicsTextItem):
             self.update()
 
     def set_text(self, text, width):
+        if width is not None:
+            self.setTextWidth(width)
+        else:
+            self.setTextWidth(None)
+
         if self.is_html(text):
             self.setHtml(text)
-            self.setTextWidth(width)
             self.set_outline(self.outline_color, self.outline_width)
         else:
             self.set_plain_text(text)
@@ -123,6 +129,20 @@ class TextBlockItem(QGraphicsTextItem):
     def set_plain_text(self, text):
         self.setPlainText(text)
         self.apply_all_attributes()
+
+    def setTextWidth(self, width):  # noqa: N802 - Qt naming
+        if width is None:
+            self.fixed_text_width = None
+            super().setTextWidth(-1)
+            return
+
+        width_value = float(width)
+        if width_value < 0:
+            self.fixed_text_width = None
+            super().setTextWidth(-1)
+        else:
+            self.fixed_text_width = width_value
+            super().setTextWidth(width_value)
 
     def is_html(self, text):
         import re
@@ -151,8 +171,10 @@ class TextBlockItem(QGraphicsTextItem):
         self.update_text_format('size', font_size)
 
     def update_text_width(self):
-        width = self.document().size().width()
-        self.setTextWidth(width)
+        if self.fixed_text_width is not None:
+            super().setTextWidth(self.fixed_text_width)
+        else:
+            super().setTextWidth(self.document().size().width())
 
     def set_alignment(self, alignment):
         if not self.textCursor().hasSelection():

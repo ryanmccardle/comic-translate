@@ -21,12 +21,14 @@ if TYPE_CHECKING:
 class ImageStateController:
     def __init__(self, main: ComicTranslate):
         self.main = main
-        
+
         # Initialize lazy image loader for list view
         self.page_list_loader = ListViewImageLoader(
             self.main.page_list,
             avatar_size=(35, 50)
         )
+        self._thumbnail_size = QtCore.QSize()
+        self.main.page_list.resized.connect(self._on_page_list_resized)
 
     def load_initial_image(self, file_paths: List[str]):
         file_paths = self.main.file_handler.prepare_files(file_paths)
@@ -206,16 +208,25 @@ class ImageStateController:
         self.main.image_cards.clear()
         self.main.current_card = None
 
+        thumbnail_size = self._calculate_thumbnail_size()
+        if not thumbnail_size.isValid():
+            thumbnail_size = QtCore.QSize(140, 210)
+
+        self._thumbnail_size = thumbnail_size
         # Add new items
         for index, file_path in enumerate(self.main.image_files):
             file_name = os.path.basename(file_path)
             list_item = QtWidgets.QListWidgetItem(file_name)
-            card = ClickMeta(extra=False, avatar_size=(35, 50))
+            card = ClickMeta(extra=False, avatar_size=thumbnail_size)
+            card.setSizePolicy(
+                QtWidgets.QSizePolicy.Policy.Expanding,
+                QtWidgets.QSizePolicy.Policy.Preferred
+            )
             card.setup_data({
                 "title": file_name,
                 # Avatar will be loaded lazily
             })
-            
+
             # Set the list item size hint to match the card size
             list_item.setSizeHint(card.sizeHint())
             
@@ -228,6 +239,9 @@ class ImageStateController:
 
         # Initialize lazy loading for the new cards
         self.page_list_loader.set_file_paths(self.main.image_files, self.main.image_cards)
+        self.page_list_loader.update_avatar_size(thumbnail_size)
+        self.main.page_list.update_card_widths()
+        self._refresh_card_size_hints()
 
     def on_card_selected(self, current, previous):
         if current:  
@@ -317,6 +331,52 @@ class ImageStateController:
                 self.main.current_card = self.main.image_cards[current_index]
         else:
             self.main.current_card = None
+
+    def _on_page_list_resized(self):
+        self._update_thumbnail_targets()
+
+    def _calculate_thumbnail_size(self) -> QtCore.QSize:
+        viewport_width = self.main.page_list.viewport().width()
+        if viewport_width <= 0:
+            viewport_width = self.main.page_list.width()
+
+        margins = self.main.page_list.contentsMargins()
+        spacing = self.main.page_list.spacing() if hasattr(self.main.page_list, "spacing") else 0
+        available_width = viewport_width - margins.left() - margins.right() - (spacing * 2)
+        available_width = max(120, available_width)
+
+        height = max(available_width, int(available_width * 1.5))
+        return QtCore.QSize(available_width, height)
+
+    def _update_thumbnail_targets(self):
+        thumbnail_size = self._calculate_thumbnail_size()
+        if not thumbnail_size.isValid():
+            return
+
+        if thumbnail_size == self._thumbnail_size:
+            self.main.page_list.update_card_widths()
+            return
+
+        self._thumbnail_size = thumbnail_size
+
+        for card in self.main.image_cards:
+            if hasattr(card, "_avatar"):
+                card.set_avatar_size(thumbnail_size)
+                if hasattr(card._avatar, "get_dayu_image"):
+                    current_pixmap = card._avatar.get_dayu_image()
+                    card._avatar.set_dayu_image(current_pixmap)
+
+        self.page_list_loader.update_avatar_size(thumbnail_size)
+        self.main.page_list.update_card_widths()
+        self._refresh_card_size_hints()
+
+    def _refresh_card_size_hints(self):
+        for index, card in enumerate(self.main.image_cards):
+            list_item = self.main.page_list.item(index)
+            if list_item:
+                size_hint = card.sizeHint()
+                card.setFixedHeight(size_hint.height())
+                list_item.setSizeHint(size_hint)
 
     def handle_image_deletion(self, file_names: list[str]):
         """Handles the deletion of images based on the provided file names."""
@@ -541,14 +601,66 @@ class ImageStateController:
             
             # Skip state loading for newly inserted images (they have empty blk_list)
             # This prevents loading of viewer state that might contain invalid transform data
-            if state.get('blk_list') or state.get('viewer_state', {}).get('rectangles'):
-                push_to_stack = state.get('viewer_state', {}).get('push_to_stack', False)
+            viewer_state = state.get('viewer_state', {})
+            stored_blk_list = state.get('blk_list', [])
+            rectangles = []
+            if isinstance(viewer_state, dict):
+                rectangles = viewer_state.get('rectangles', [])
 
-                self.main.blk_list = state['blk_list'].copy()  # Load a copy of the list, not a reference
-                self.main.image_viewer.load_state(state['viewer_state'])
+            rebuild_from_blocks = bool(stored_blk_list) and not rectangles
+            has_viewer_geometry = (
+                isinstance(viewer_state, dict)
+                and all(key in viewer_state for key in ('transform', 'center', 'scene_rect', 'rectangles'))
+                and not rebuild_from_blocks
+            )
+
+            if stored_blk_list or rectangles:
+                push_to_stack = viewer_state.get('push_to_stack', False) if isinstance(viewer_state, dict) else False
+
+                self.main.blk_list = stored_blk_list.copy()  # Load a copy of the list, not a reference
+
+                if has_viewer_geometry:
+                    self.main.image_viewer.load_state(viewer_state)
+                else:
+                    if self.main.blk_list:
+                        stored_viewer_state = viewer_state if isinstance(viewer_state, dict) else {}
+                        stored_text_items = stored_viewer_state.get('text_items_state', [])
+                        stored_transform = stored_viewer_state.get('transform')
+                        stored_center = stored_viewer_state.get('center')
+                        stored_scene_rect = stored_viewer_state.get('scene_rect')
+
+                        self.main.pipeline.load_box_coords(self.main.blk_list)
+
+                        if (
+                            stored_transform
+                            and stored_center
+                            and stored_scene_rect
+                            and len(stored_transform) == 9
+                        ):
+                            transform = QtGui.QTransform(*stored_transform)
+                            self.main.image_viewer.setTransform(transform)
+                            self.main.image_viewer.centerOn(QtCore.QPointF(*stored_center))
+                            self.main.image_viewer.setSceneRect(QtCore.QRectF(*stored_scene_rect))
+
+                        for text_state in stored_text_items:
+                            self.main.image_viewer.add_text_item(text_state)
+
+                        viewer_state = self.main.image_viewer.save_state()
+                        if push_to_stack:
+                            viewer_state['push_to_stack'] = push_to_stack
+                        state['viewer_state'] = viewer_state
+                    else:
+                        if self.main.webtoon_mode:
+                            self.main.image_viewer.clear_rectangles(page_switch=True)
+                        else:
+                            self.main.image_viewer.clear_rectangles(page_switch=True)
+
                 self.main.s_combo.setCurrentText(state['source_lang'])
                 self.main.t_combo.setCurrentText(state['target_lang'])
                 self.main.image_viewer.load_brush_strokes(state['brush_strokes'])
+
+                viewer_state = state.get('viewer_state', {})
+                push_to_stack = viewer_state.get('push_to_stack', False)
 
                 if push_to_stack:
                     self.main.undo_stacks[file_path].beginMacro('text_items_rendered')

@@ -140,8 +140,15 @@ class EventHandler:
         if not self.viewer.hasPhoto(): 
             return
         
-        if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
-            factor = 1.25 if event.angleDelta().y() > 0 else 1 / 1.25
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta_y = event.angleDelta().y()
+            if delta_y == 0:
+                delta_y = event.pixelDelta().y()
+            if event.inverted():
+                delta_y = -delta_y
+            if delta_y == 0:
+                return
+            factor = 1.25 if delta_y > 0 else 1 / 1.25
             self.viewer.scale(factor, factor)
             self.viewer.zoom += 1 if factor > 1 else -1
         else:

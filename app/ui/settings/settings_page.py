@@ -71,6 +71,13 @@ class SettingsPage(QtWidgets.QWidget):
         }
         return tool_combos[tool_type].currentText()
 
+    def get_ocr_newline_mode(self) -> str:
+        combo = getattr(self.ui, 'strip_newlines_combo', None)
+        if combo is None:
+            return 'strip_all'
+        selected = combo.currentText()
+        return self.ui.value_mappings.get(selected, 'strip_all')
+
     def is_gpu_enabled(self):
         return self.ui.use_gpu_checkbox.isChecked()
 
@@ -147,6 +154,7 @@ class SettingsPage(QtWidgets.QWidget):
                 'ocr': self.get_tool_selection('ocr'),
                 'detector': self.get_tool_selection('detector'),
                 'inpainter': self.get_tool_selection('inpainter'),
+                'strip_newlines': self.get_ocr_newline_mode(),
                 'use_gpu': self.is_gpu_enabled(),
                 'hd_strategy': self.get_hd_strategy_settings()
             },
@@ -271,6 +279,10 @@ class SettingsPage(QtWidgets.QWidget):
         ocr = OCR_MIGRATIONS.get(raw_ocr, raw_ocr)
         translated_ocr = self.ui.reverse_mappings.get(ocr, ocr)
         self.ui.ocr_combo.setCurrentText(translated_ocr)
+
+        strip_newlines = settings.value('strip_newlines', 'strip_all')
+        translated_strip = self.ui.reverse_mappings.get(strip_newlines, self.ui.tr("Strip all"))
+        self.ui.strip_newlines_combo.setCurrentText(translated_strip)
 
         raw_inpainter = settings.value('inpainter', 'LaMa')
         inpainter = INPAINTER_MIGRATIONS.get(raw_inpainter, raw_inpainter)

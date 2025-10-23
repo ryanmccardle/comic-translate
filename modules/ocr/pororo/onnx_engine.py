@@ -254,9 +254,9 @@ class PororoOCREngineONNX(OCREngine):
                 res = self.read(cropped)
                 # res is list of (box,text,score); join texts
                 if isinstance(res, list) and len(res) > 0 and isinstance(res[0], tuple):
-                    blk.text = ' '.join([r[1] for r in res])
+                    blk.text = '\n'.join([r[1] for r in res])
                 elif isinstance(res, list):
-                    blk.text = ' '.join(res)
+                    blk.text = '\n'.join(res)
                 else:
                     blk.text = ''
             else:

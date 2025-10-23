@@ -113,6 +113,7 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         }
 
         self._init_ui()
+        self._setup_navigation_shortcuts()
 
     def _init_ui(self):
         main_widget = QtWidgets.QWidget(self)
@@ -286,6 +287,17 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
 
         return button
 
+    def _setup_navigation_shortcuts(self):
+        self.prev_page_shortcut = QtGui.QShortcut(QtGui.QKeySequence(QtGui.QKeySequence.MoveToPreviousPage), self)
+        self.prev_page_shortcut.setContext(QtCore.Qt.ShortcutContext.ApplicationShortcut)
+        self.prev_page_shortcut_alt = QtGui.QShortcut(QtGui.QKeySequence("Alt+Left"), self)
+        self.prev_page_shortcut_alt.setContext(QtCore.Qt.ShortcutContext.ApplicationShortcut)
+
+        self.next_page_shortcut = QtGui.QShortcut(QtGui.QKeySequence(QtGui.QKeySequence.MoveToNextPage), self)
+        self.next_page_shortcut.setContext(QtCore.Qt.ShortcutContext.ApplicationShortcut)
+        self.next_page_shortcut_alt = QtGui.QShortcut(QtGui.QKeySequence("Alt+Right"), self)
+        self.next_page_shortcut_alt.setContext(QtCore.Qt.ShortcutContext.ApplicationShortcut)
+
     def _create_main_content(self):
 
         content_widget = QtWidgets.QWidget()
@@ -298,6 +310,16 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
             {"svg": "redo.svg", "checkable": False, "tooltip": self.tr("Redo")},
         ]
         self.undo_tool_group.set_button_list(undo_tools)
+
+        self.prev_page_button = MToolButton().icon_only().large()
+        self.prev_page_button.set_dayu_svg("left_fill.svg")
+        self.prev_page_button.setToolTip(self.tr("Previous Page (Alt+Left)"))
+        self.prev_page_button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+
+        self.next_page_button = MToolButton().icon_only().large()
+        self.next_page_button.set_dayu_svg("right_fill.svg")
+        self.next_page_button.setToolTip(self.tr("Next Page (Alt+Right)"))
+        self.next_page_button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
 
         button_config_list = [
             {"text": self.tr("Detect Text"), "dayu_type": MPushButton.DefaultType, "enabled": False},
@@ -327,10 +349,15 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         self.automatic_radio = MRadioButton(self.tr("Automatic"))
         self.automatic_radio.setChecked(True)
         self.automatic_radio.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
-        
+
+        self.auto_stage_checkbox = MCheckBox(self.tr("Run steps on all pages"))
+        self.auto_stage_checkbox.setChecked(True)
+        self.auto_stage_checkbox.setVisible(False)
+        self.auto_stage_checkbox.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+
         # Webtoon mode toggle
         self.webtoon_toggle = MToolButton()
-        self.webtoon_toggle.set_dayu_svg("webtoon-toggle.svg") 
+        self.webtoon_toggle.set_dayu_svg("webtoon-toggle.svg")
         self.webtoon_toggle.huge()
         self.webtoon_toggle.setCheckable(True)
         self.webtoon_toggle.setToolTip(self.tr("Toggle Webtoon Mode. " \
@@ -345,12 +372,15 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         self.cancel_button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
 
         header_layout.addWidget(self.undo_tool_group)
+        header_layout.addWidget(self.prev_page_button)
+        header_layout.addWidget(self.next_page_button)
         header_layout.addWidget(self.hbutton_group)
         header_layout.addWidget(self.loading)
         header_layout.addStretch()
         header_layout.addWidget(self.webtoon_toggle)
         header_layout.addWidget(self.manual_radio)
         header_layout.addWidget(self.automatic_radio)
+        header_layout.addWidget(self.auto_stage_checkbox)
         header_layout.addWidget(self.translate_button)
         header_layout.addWidget(self.cancel_button)
 
@@ -512,12 +542,22 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         outline_settings_layout.addWidget(self.outline_width_dropdown)
         outline_settings_layout.addStretch()
 
+        font_apply_layout = QtWidgets.QHBoxLayout()
+        self.apply_font_page_button = MPushButton(self.tr("Apply font to page"))
+        self.apply_font_page_button.setToolTip(self.tr("Apply the current font settings to every textbox on this page."))
+        self.apply_font_project_button = MPushButton(self.tr("Apply font to project"))
+        self.apply_font_project_button.setToolTip(self.tr("Apply the current font settings to every textbox in the project."))
+        font_apply_layout.addWidget(self.apply_font_page_button)
+        font_apply_layout.addWidget(self.apply_font_project_button)
+        font_apply_layout.addStretch()
+
         rendering_divider_top = MDivider()
         rendering_divider_bottom = MDivider()
         text_render_layout.addWidget(rendering_divider_top)
         text_render_layout.addLayout(font_settings_layout)
         text_render_layout.addLayout(main_text_settings_layout)
         text_render_layout.addLayout(outline_settings_layout)
+        text_render_layout.addLayout(font_apply_layout)
         text_render_layout.addWidget(rendering_divider_bottom)
 
         # Tools Layout

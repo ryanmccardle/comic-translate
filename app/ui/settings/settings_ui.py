@@ -56,15 +56,28 @@ class SettingsPageUI(QtWidgets.QWidget):
 
         self.inpainters = ['LaMa', 'AOT']
         self.detectors = ['RT-DETR-v2']
-        self.ocr_engines = [self.tr("Default"), self.tr('Microsoft OCR'), self.tr('Google Cloud Vision'), self.tr('Gemini-2.0-Flash'), self.tr('GPT-4.1-mini')]
+        self.ocr_engines = [
+            self.tr("Default"),
+            self.tr('Microsoft OCR'),
+            self.tr('Google Cloud Vision'),
+            self.tr('Gemini-2.0-Flash'),
+            self.tr('GPT-4.1-mini'),
+            self.tr('GPT-5-mini'),
+            self.tr('GPT-5-nano'),
+        ]
         self.inpaint_strategy = [self.tr('Resize'), self.tr('Original'), self.tr('Crop')]
         self.themes = [self.tr('Dark'), self.tr('Light')]
         self.alignment = [self.tr("Left"), self.tr("Center"), self.tr("Right")]
+        self.strip_newline_options = [
+            self.tr("Strip all"),
+            self.tr("Strip single only (preserve paragraph breaks)"),
+            self.tr("Strip none"),
+        ]
 
         self.credential_services = [self.tr("Custom"), self.tr("Deepseek"), self.tr("Open AI GPT"), self.tr("Microsoft Azure"), self.tr("Google Cloud"), 
                                     self.tr("Google Gemini"), self.tr("DeepL"), self.tr("Anthropic Claude"), self.tr("Yandex")]
         
-        self.supported_translators = [self.tr("GPT-4.1"), self.tr("GPT-4.1-mini"), self.tr("DeepL"), 
+        self.supported_translators = [self.tr("GPT-4.1"), self.tr("GPT-4.1-mini"), self.tr("GPT-5-mini"), self.tr("GPT-5-nano"), self.tr("DeepL"),
                                     self.tr("Claude-4.5-Sonnet"), self.tr("Claude-4.5-Haiku"),
                                     self.tr("Gemini-2.5-Flash"), self.tr("Yandex"), self.tr("Google Translate"),
                                     self.tr("Microsoft Translator"), self.tr("Deepseek-v3"), self.tr("Custom"),]
@@ -100,6 +113,8 @@ class SettingsPageUI(QtWidgets.QWidget):
             self.tr("Deepseek-v3"): "Deepseek-v3",
             self.tr("GPT-4.1"): "GPT-4.1",
             self.tr("GPT-4.1-mini"): "GPT-4.1-mini",
+            self.tr("GPT-5-mini"): "GPT-5-mini",
+            self.tr("GPT-5-nano"): "GPT-5-nano",
             self.tr("DeepL"): "DeepL",
             self.tr("Claude-4.5-Sonnet"): "Claude-4.5-Sonnet",
             self.tr("Claude-4.5-Haiku"): "Claude-4.5-Haiku",
@@ -113,6 +128,9 @@ class SettingsPageUI(QtWidgets.QWidget):
             self.tr("Default"): "Default",
             self.tr("Microsoft OCR"): "Microsoft OCR",
             self.tr("Google Cloud Vision"): "Google Cloud Vision",
+            self.tr("GPT-4.1-mini"): "GPT-4.1-mini",
+            self.tr("GPT-5-mini"): "GPT-5-mini",
+            self.tr("GPT-5-nano"): "GPT-5-nano",
 
             # Inpainter mappings
             "LaMa": "LaMa",
@@ -125,6 +143,11 @@ class SettingsPageUI(QtWidgets.QWidget):
             self.tr("Resize"): "Resize",
             self.tr("Original"): "Original",
             self.tr("Crop"): "Crop",
+
+            # OCR newline handling mappings
+            self.tr("Strip all"): "strip_all",
+            self.tr("Strip single only (preserve paragraph breaks)"): "strip_single",
+            self.tr("Strip none"): "strip_none",
 
             # Alignment mappings
             self.tr("Left"): "Left",
@@ -168,6 +191,7 @@ class SettingsPageUI(QtWidgets.QWidget):
             detectors=self.detectors,
             inpainters=self.inpainters,
             inpaint_strategy=self.inpaint_strategy,
+            strip_newline_options=self.strip_newline_options,
             parent=self,
         )
         self.credentials_page = CredentialsPage(
@@ -190,6 +214,7 @@ class SettingsPageUI(QtWidgets.QWidget):
         self.detector_combo = self.tools_page.detector_combo
         self.inpainter_combo = self.tools_page.inpainter_combo
         self.inpaint_strategy_combo = self.tools_page.inpaint_strategy_combo
+        self.strip_newlines_combo = self.tools_page.strip_newlines_combo
         self.resize_spinbox = self.tools_page.resize_spinbox
         self.crop_margin_spinbox = self.tools_page.crop_margin_spinbox
         self.crop_trigger_spinbox = self.tools_page.crop_trigger_spinbox

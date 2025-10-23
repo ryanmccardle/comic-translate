@@ -5,6 +5,7 @@ from __future__ import print_function
 
 # Import third-party modules
 from PySide6 import QtCore
+from PySide6 import QtGui
 from PySide6 import QtWidgets
 
 # Import local modules
@@ -133,9 +134,9 @@ class ClickMeta(QtWidgets.QWidget):
         content_lay.addWidget(self._description_label)
 
         avatar_layout = QtWidgets.QVBoxLayout()
-        avatar_layout.addStretch()
-        avatar_layout.addWidget(self._avatar)
-        avatar_layout.addStretch()
+        avatar_layout.setContentsMargins(0, 0, 0, 0)
+        avatar_layout.setSpacing(0)
+        avatar_layout.addWidget(self._avatar, alignment=QtCore.Qt.AlignTop)
 
         avatar_content_layout = QtWidgets.QHBoxLayout()
         avatar_content_layout.addSpacing(2)
@@ -153,12 +154,12 @@ class ClickMeta(QtWidgets.QWidget):
         main_lay.addLayout(self._button_layout)
         self.setLayout(main_lay)
         self._cover_label.setFixedSize(QtCore.QSize(200, 200))
-        # Set a fixed size for the avatar
+
+        # Remember the preferred avatar size so the layout can react to real thumbnail
+        # dimensions once they are available.
+        self._avatar_preferred_size = QtCore.QSize()
         if avatar_size:
-            w, h = avatar_size
-            self._avatar.setFixedSize(QtCore.QSize(w, h))
-        # Remember avatar size for sizeHint calculations (None when not provided)
-        self._avatar_size = avatar_size if avatar_size else None
+            self.set_avatar_size(avatar_size)
         # Make widgets transparent for mouse events (excluding extra button)
         self._make_widgets_transparent()
 
@@ -253,13 +254,10 @@ class ClickMeta(QtWidgets.QWidget):
         # If a cover is visible it sits above content and controls the width/height mainly
         cover_size = self._cover_label.size() if self._cover_label.isVisible() else QtCore.QSize(0, 0)
 
-        # Avatar dimensions: only count if avatar widget is visible
+        # Avatar dimensions: use the actual widget size when visible
         if self._avatar.isVisible():
-            if self._avatar_size:
-                avatar_width, avatar_height = self._avatar_size
-            else:
-                av_hint = self._avatar.sizeHint()
-                avatar_width, avatar_height = av_hint.width(), av_hint.height()
+            avatar_size = self._avatar.size()
+            avatar_width, avatar_height = avatar_size.width(), avatar_size.height()
         else:
             avatar_width = 0
             avatar_height = 0
@@ -275,7 +273,7 @@ class ClickMeta(QtWidgets.QWidget):
         else:
             # If there's an avatar, keep a small extra padding; if not, don't add extra padding
             if avatar_height:
-                total_height = max(avatar_height, content_height) + 10
+                total_height = max(avatar_height, content_height)
             else:
                 total_height = content_height
 
@@ -291,4 +289,42 @@ class ClickMeta(QtWidgets.QWidget):
             stacked_width = content_width
         total_width = max(cover_size.width(), stacked_width)
 
+        # Respect the preferred width so list widgets can enforce full-width thumbnails.
+        if self._avatar_preferred_size.width():
+            total_width = max(total_width, self._avatar_preferred_size.width())
+
         return QtCore.QSize(max(total_width, 150), total_height)
+
+    def set_avatar_size(self, avatar_size):
+        """Update the avatar size tracking so size hints remain in sync."""
+        if isinstance(avatar_size, QtCore.QSize):
+            width, height = avatar_size.width(), avatar_size.height()
+        elif isinstance(avatar_size, (tuple, list)) and len(avatar_size) == 2:
+            width, height = avatar_size
+        else:
+            width = height = 0
+
+        if width:
+            width = int(width)
+            height = int(height) if height else width
+            placeholder = QtCore.QSize(width, max(1, height))
+            self._avatar_preferred_size = placeholder
+            self._avatar.setFixedSize(placeholder)
+        else:
+            self._avatar_preferred_size = QtCore.QSize()
+        self.updateGeometry()
+
+    def set_thumbnail_pixmap(self, pixmap: QtGui.QPixmap):
+        """Assign the thumbnail pixmap and resize the avatar to the image height."""
+        if pixmap and not pixmap.isNull():
+            image_size = pixmap.size()
+            self._avatar.setFixedSize(image_size)
+            self._avatar_preferred_size = QtCore.QSize(image_size.width(), image_size.height())
+            self._avatar.set_dayu_image(pixmap)
+        else:
+            # Revert to the preferred size when there's no valid thumbnail yet.
+            if self._avatar_preferred_size.isValid():
+                self._avatar.setFixedSize(self._avatar_preferred_size)
+            self._avatar.set_dayu_image(pixmap)
+        self._avatar.updateGeometry()
+        self.updateGeometry()

@@ -2,6 +2,7 @@ import json
 import hashlib
 
 from .base import TranslationEngine
+from ..utils.pipeline_utils import STRIP_NEWLINES_ALL
 from .google import GoogleTranslation
 from .microsoft import MicrosoftTranslation
 from .deepl import DeepLTranslation
@@ -69,7 +70,14 @@ class TranslationFactory:
             engine.initialize(settings, source_lang, target_lang)
         else:
             engine.initialize(settings, source_lang, target_lang, translator_key)
-        
+
+        get_mode = getattr(settings, 'get_ocr_newline_mode', None)
+        if hasattr(engine, 'set_newline_mode'):
+            if callable(get_mode):
+                engine.set_newline_mode(get_mode())
+            else:
+                engine.set_newline_mode(STRIP_NEWLINES_ALL)
+
         # Cache the engine
         cls._engines[cache_key] = engine
         return engine

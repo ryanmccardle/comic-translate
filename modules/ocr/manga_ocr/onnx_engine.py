@@ -178,7 +178,9 @@ class MangaOCRONNX:
         return text
 
     def _postprocess(self, text: str) -> str:
-        text = ''.join(text.split())
+        if not text:
+            return ""
+        text = text.replace('\r\n', '\n').replace('\r', '\n')
         text = text.replace('…', '...')
         text = re.sub('[・.]{2,}', lambda x: (x.end() - x.start()) * '.', text)
         text = jaconv.h2z(text, ascii=True, digit=True)

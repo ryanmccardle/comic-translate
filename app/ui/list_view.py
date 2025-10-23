@@ -12,6 +12,7 @@ class PageListView(QListWidget):
     toggle_skip_img = Signal(list, bool)  # list of images, bool for skip status (True=skip, False=unskip)
     translate_imgs = Signal(list)
     selection_changed = Signal(list)  # list of selected indices
+    resized = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -25,11 +26,39 @@ class PageListView(QListWidget):
         # Connect selection model changes to emit our custom signal
         self.selectionModel().selectionChanged.connect(self._on_selection_changed)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_card_widths()
+        self.resized.emit()
+
     def ui_elements(self):
         self.insert_browser = MClickBrowserFilePushButton(multiple=True)
         self.insert_browser.set_dayu_filters([".png", ".jpg", ".jpeg", ".webp", ".bmp",
                                             ".zip", ".cbz", ".cbr", ".cb7", ".cbt",
                                             ".pdf", ".epub"])
+
+    def update_card_widths(self):
+        """Resize card widgets so they fill the available viewport width."""
+        viewport_width = self.viewport().width()
+        if viewport_width <= 0:
+            return
+
+        spacing = self.spacing() if hasattr(self, "spacing") else 0
+        available_width = max(80, viewport_width - (spacing * 2))
+
+        for index in range(self.count()):
+            item = self.item(index)
+            if not item:
+                continue
+            widget = self.itemWidget(item)
+            if not widget:
+                continue
+            size_hint = widget.sizeHint()
+            widget.setMinimumWidth(available_width)
+            widget.setMaximumWidth(available_width)
+            widget.setFixedHeight(size_hint.height())
+            widget.updateGeometry()
+            item.setSizeHint(QSize(available_width, size_hint.height()))
 
     def _on_selection_changed(self, selected, deselected):
         """Handle selection changes and emit signal with selected indices."""
