@@ -213,16 +213,14 @@ class ImageStateController:
             thumbnail_size = QtCore.QSize(140, 210)
 
         self._thumbnail_size = thumbnail_size
-        avatar_tuple = (thumbnail_size.width(), thumbnail_size.height())
-
         # Add new items
         for index, file_path in enumerate(self.main.image_files):
             file_name = os.path.basename(file_path)
             list_item = QtWidgets.QListWidgetItem(file_name)
-            card = ClickMeta(extra=False, avatar_size=avatar_tuple)
+            card = ClickMeta(extra=False, avatar_size=thumbnail_size)
             card.setSizePolicy(
                 QtWidgets.QSizePolicy.Policy.Expanding,
-                QtWidgets.QSizePolicy.Policy.Fixed
+                QtWidgets.QSizePolicy.Policy.Preferred
             )
             card.setup_data({
                 "title": file_name,
@@ -363,7 +361,7 @@ class ImageStateController:
 
         for card in self.main.image_cards:
             if hasattr(card, "_avatar"):
-                card._avatar.setFixedSize(thumbnail_size)
+                card.set_avatar_size(thumbnail_size)
                 if hasattr(card._avatar, "get_dayu_image"):
                     current_pixmap = card._avatar.get_dayu_image()
                     card._avatar.set_dayu_image(current_pixmap)
@@ -376,7 +374,9 @@ class ImageStateController:
         for index, card in enumerate(self.main.image_cards):
             list_item = self.main.page_list.item(index)
             if list_item:
-                list_item.setSizeHint(card.sizeHint())
+                size_hint = card.sizeHint()
+                card.setFixedHeight(size_hint.height())
+                list_item.setSizeHint(size_hint)
 
     def handle_image_deletion(self, file_names: list[str]):
         """Handles the deletion of images based on the provided file names."""

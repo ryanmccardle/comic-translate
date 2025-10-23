@@ -113,6 +113,7 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         }
 
         self._init_ui()
+        self._setup_navigation_shortcuts()
 
     def _init_ui(self):
         main_widget = QtWidgets.QWidget(self)
@@ -286,6 +287,17 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
 
         return button
 
+    def _setup_navigation_shortcuts(self):
+        self.prev_page_shortcut = QtGui.QShortcut(QtGui.QKeySequence(QtGui.QKeySequence.MoveToPreviousPage), self)
+        self.prev_page_shortcut.setContext(QtCore.Qt.ShortcutContext.ApplicationShortcut)
+        self.prev_page_shortcut_alt = QtGui.QShortcut(QtGui.QKeySequence("Alt+Left"), self)
+        self.prev_page_shortcut_alt.setContext(QtCore.Qt.ShortcutContext.ApplicationShortcut)
+
+        self.next_page_shortcut = QtGui.QShortcut(QtGui.QKeySequence(QtGui.QKeySequence.MoveToNextPage), self)
+        self.next_page_shortcut.setContext(QtCore.Qt.ShortcutContext.ApplicationShortcut)
+        self.next_page_shortcut_alt = QtGui.QShortcut(QtGui.QKeySequence("Alt+Right"), self)
+        self.next_page_shortcut_alt.setContext(QtCore.Qt.ShortcutContext.ApplicationShortcut)
+
     def _create_main_content(self):
 
         content_widget = QtWidgets.QWidget()
@@ -298,6 +310,16 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
             {"svg": "redo.svg", "checkable": False, "tooltip": self.tr("Redo")},
         ]
         self.undo_tool_group.set_button_list(undo_tools)
+
+        self.prev_page_button = MToolButton()
+        self.prev_page_button.set_dayu_svg("left_fill.svg")
+        self.prev_page_button.setToolTip(self.tr("Previous Page (Alt+Left)"))
+        self.prev_page_button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+
+        self.next_page_button = MToolButton()
+        self.next_page_button.set_dayu_svg("right_fill.svg")
+        self.next_page_button.setToolTip(self.tr("Next Page (Alt+Right)"))
+        self.next_page_button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
 
         button_config_list = [
             {"text": self.tr("Detect Text"), "dayu_type": MPushButton.DefaultType, "enabled": False},
@@ -350,6 +372,8 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         self.cancel_button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
 
         header_layout.addWidget(self.undo_tool_group)
+        header_layout.addWidget(self.prev_page_button)
+        header_layout.addWidget(self.next_page_button)
         header_layout.addWidget(self.hbutton_group)
         header_layout.addWidget(self.loading)
         header_layout.addStretch()

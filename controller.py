@@ -146,6 +146,13 @@ class ComicTranslate(ComicTranslateUI):
         self.undo_tool_group.get_button_group().buttons()[0].clicked.connect(self.undo_group.undo)
         self.undo_tool_group.get_button_group().buttons()[1].clicked.connect(self.undo_group.redo)
 
+        self.prev_page_button.clicked.connect(lambda: self.image_ctrl.navigate_images(-1))
+        self.next_page_button.clicked.connect(lambda: self.image_ctrl.navigate_images(1))
+        self.prev_page_shortcut.activated.connect(lambda: self.image_ctrl.navigate_images(-1))
+        self.prev_page_shortcut_alt.activated.connect(lambda: self.image_ctrl.navigate_images(-1))
+        self.next_page_shortcut.activated.connect(lambda: self.image_ctrl.navigate_images(1))
+        self.next_page_shortcut_alt.activated.connect(lambda: self.image_ctrl.navigate_images(1))
+
         # Connect other buttons and widgets
         self.translate_button.clicked.connect(self.start_batch_process)
         self.cancel_button.clicked.connect(self.cancel_current_task)

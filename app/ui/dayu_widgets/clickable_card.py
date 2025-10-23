@@ -153,12 +153,11 @@ class ClickMeta(QtWidgets.QWidget):
         main_lay.addLayout(self._button_layout)
         self.setLayout(main_lay)
         self._cover_label.setFixedSize(QtCore.QSize(200, 200))
-        # Set a fixed size for the avatar
-        if avatar_size:
-            w, h = avatar_size
-            self._avatar.setFixedSize(QtCore.QSize(w, h))
+
         # Remember avatar size for sizeHint calculations (None when not provided)
-        self._avatar_size = avatar_size if avatar_size else None
+        self._avatar_size = None
+        if avatar_size:
+            self.set_avatar_size(avatar_size)
         # Make widgets transparent for mouse events (excluding extra button)
         self._make_widgets_transparent()
 
@@ -292,3 +291,20 @@ class ClickMeta(QtWidgets.QWidget):
         total_width = max(cover_size.width(), stacked_width)
 
         return QtCore.QSize(max(total_width, 150), total_height)
+
+    def set_avatar_size(self, avatar_size):
+        """Update the avatar size tracking so size hints remain in sync."""
+        if isinstance(avatar_size, QtCore.QSize):
+            width, height = avatar_size.width(), avatar_size.height()
+        elif isinstance(avatar_size, (tuple, list)) and len(avatar_size) == 2:
+            width, height = avatar_size
+        else:
+            width = height = 0
+
+        if width and height:
+            size = QtCore.QSize(int(width), int(height))
+            self._avatar.setFixedSize(size)
+            self._avatar_size = (size.width(), size.height())
+        else:
+            self._avatar_size = None
+        self.updateGeometry()

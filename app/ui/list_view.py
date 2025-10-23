@@ -53,11 +53,12 @@ class PageListView(QListWidget):
             widget = self.itemWidget(item)
             if not widget:
                 continue
+            size_hint = widget.sizeHint()
             widget.setMinimumWidth(available_width)
             widget.setMaximumWidth(available_width)
-            widget.resize(available_width, widget.size().height())
+            widget.setFixedHeight(size_hint.height())
             widget.updateGeometry()
-            item.setSizeHint(widget.sizeHint())
+            item.setSizeHint(QSize(available_width, size_hint.height()))
 
     def _on_selection_changed(self, selected, deselected):
         """Handle selection changes and emit signal with selected indices."""
