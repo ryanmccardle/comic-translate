@@ -261,7 +261,10 @@ class ListViewImageLoader:
         if hasattr(card, "set_avatar_size"):
             card.set_avatar_size(self.avatar_size)
         pixmap = self._scaled_pixmap(image)
-        card._avatar.set_dayu_image(pixmap)
+        if hasattr(card, "set_thumbnail_pixmap"):
+            card.set_thumbnail_pixmap(pixmap)
+        else:
+            card._avatar.set_dayu_image(pixmap)
         card._avatar.setVisible(True)
 
         list_item = self.list_widget.item(index)
@@ -269,6 +272,7 @@ class ListViewImageLoader:
             size_hint = card.sizeHint()
             card.setFixedHeight(size_hint.height())
             list_item.setSizeHint(size_hint)
+            self.list_widget.updateGeometries()
 
     def _scaled_pixmap(self, image: QImage) -> QPixmap:
         if image.isNull():

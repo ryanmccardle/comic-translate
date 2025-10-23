@@ -311,12 +311,12 @@ class ComicTranslateUI(QtWidgets.QMainWindow):
         ]
         self.undo_tool_group.set_button_list(undo_tools)
 
-        self.prev_page_button = MToolButton()
+        self.prev_page_button = MToolButton().icon_only().large()
         self.prev_page_button.set_dayu_svg("left_fill.svg")
         self.prev_page_button.setToolTip(self.tr("Previous Page (Alt+Left)"))
         self.prev_page_button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
 
-        self.next_page_button = MToolButton()
+        self.next_page_button = MToolButton().icon_only().large()
         self.next_page_button.set_dayu_svg("right_fill.svg")
         self.next_page_button.setToolTip(self.tr("Next Page (Alt+Right)"))
         self.next_page_button.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
