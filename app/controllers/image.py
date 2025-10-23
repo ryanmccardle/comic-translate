@@ -21,12 +21,14 @@ if TYPE_CHECKING:
 class ImageStateController:
     def __init__(self, main: ComicTranslate):
         self.main = main
-        
+
         # Initialize lazy image loader for list view
         self.page_list_loader = ListViewImageLoader(
             self.main.page_list,
             avatar_size=(35, 50)
         )
+        self._thumbnail_size = QtCore.QSize()
+        self.main.page_list.resized.connect(self._on_page_list_resized)
 
     def load_initial_image(self, file_paths: List[str]):
         file_paths = self.main.file_handler.prepare_files(file_paths)
@@ -206,16 +208,27 @@ class ImageStateController:
         self.main.image_cards.clear()
         self.main.current_card = None
 
+        thumbnail_size = self._calculate_thumbnail_size()
+        if not thumbnail_size.isValid():
+            thumbnail_size = QtCore.QSize(140, 210)
+
+        self._thumbnail_size = thumbnail_size
+        avatar_tuple = (thumbnail_size.width(), thumbnail_size.height())
+
         # Add new items
         for index, file_path in enumerate(self.main.image_files):
             file_name = os.path.basename(file_path)
             list_item = QtWidgets.QListWidgetItem(file_name)
-            card = ClickMeta(extra=False, avatar_size=(35, 50))
+            card = ClickMeta(extra=False, avatar_size=avatar_tuple)
+            card.setSizePolicy(
+                QtWidgets.QSizePolicy.Policy.Expanding,
+                QtWidgets.QSizePolicy.Policy.Fixed
+            )
             card.setup_data({
                 "title": file_name,
                 # Avatar will be loaded lazily
             })
-            
+
             # Set the list item size hint to match the card size
             list_item.setSizeHint(card.sizeHint())
             
@@ -228,6 +241,9 @@ class ImageStateController:
 
         # Initialize lazy loading for the new cards
         self.page_list_loader.set_file_paths(self.main.image_files, self.main.image_cards)
+        self.page_list_loader.update_avatar_size(thumbnail_size)
+        self.main.page_list.update_card_widths()
+        self._refresh_card_size_hints()
 
     def on_card_selected(self, current, previous):
         if current:  
@@ -317,6 +333,50 @@ class ImageStateController:
                 self.main.current_card = self.main.image_cards[current_index]
         else:
             self.main.current_card = None
+
+    def _on_page_list_resized(self):
+        self._update_thumbnail_targets()
+
+    def _calculate_thumbnail_size(self) -> QtCore.QSize:
+        viewport_width = self.main.page_list.viewport().width()
+        if viewport_width <= 0:
+            viewport_width = self.main.page_list.width()
+
+        margins = self.main.page_list.contentsMargins()
+        spacing = self.main.page_list.spacing() if hasattr(self.main.page_list, "spacing") else 0
+        available_width = viewport_width - margins.left() - margins.right() - (spacing * 2)
+        available_width = max(120, available_width)
+
+        height = max(available_width, int(available_width * 1.5))
+        return QtCore.QSize(available_width, height)
+
+    def _update_thumbnail_targets(self):
+        thumbnail_size = self._calculate_thumbnail_size()
+        if not thumbnail_size.isValid():
+            return
+
+        if thumbnail_size == self._thumbnail_size:
+            self.main.page_list.update_card_widths()
+            return
+
+        self._thumbnail_size = thumbnail_size
+
+        for card in self.main.image_cards:
+            if hasattr(card, "_avatar"):
+                card._avatar.setFixedSize(thumbnail_size)
+                if hasattr(card._avatar, "get_dayu_image"):
+                    current_pixmap = card._avatar.get_dayu_image()
+                    card._avatar.set_dayu_image(current_pixmap)
+
+        self.page_list_loader.update_avatar_size(thumbnail_size)
+        self.main.page_list.update_card_widths()
+        self._refresh_card_size_hints()
+
+    def _refresh_card_size_hints(self):
+        for index, card in enumerate(self.main.image_cards):
+            list_item = self.main.page_list.item(index)
+            if list_item:
+                list_item.setSizeHint(card.sizeHint())
 
     def handle_image_deletion(self, file_names: list[str]):
         """Handles the deletion of images based on the provided file names."""
